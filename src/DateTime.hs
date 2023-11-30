@@ -116,10 +116,10 @@ parsePrint s = printDateTime <$> run parseDateTime s
 -- Exercise 5
 checkDateTime :: DateTime -> Bool
 checkDateTime (DateTime (Date (Year year) (Month month) (Day day)) (Time (Hour hour) (Minute minute) (Second second)) _) = month <= 12 &&
-                    (checkDay year month day) &&
-                    hour <= 24 &&
-                    minute <= 60 &&
-                    second <= 60
+                    checkDay year month day &&
+                    hour < 24 &&
+                    minute < 60 &&
+                    second < 60
 
 -- Year -> Month -> Day -> Bool
 checkDay :: Int -> Int -> Int -> Bool
@@ -127,22 +127,21 @@ checkDay y m d = case m of
                     1 -> d <= 31
                     2 -> checkLeapYear y d
                     3 -> d <= 31
+                    4 -> d <= 30
                     5 -> d <= 31
+                    6 -> d <= 30
                     7 -> d <= 31
                     8 -> d <= 31
-                    10 -> d <= 31
-                    12 -> d <= 31
-                    4 -> d <= 30
-                    6 -> d <= 30
                     9 -> d <= 30
+                    10 -> d <= 31
                     11 -> d <= 30
-
+                    12 -> d <= 31
+                    otherwise -> False
 
 checkLeapYear :: Int -> Int -> Bool
 checkLeapYear y d
-                | y `mod` 4 == 0 && (not ((y + 100) `mod` 200 == 0)) && (not ((y + 200) `mod` 400 == 0)) = d <= 29
+                | y `mod` 4 == 0 && (((y + 100) `mod` 200) /= 0) && (((y + 200) `mod` 400) /= 0) = d <= 29
                 |otherwise = d <= 28
-
 
 -- Own testing functions
 
