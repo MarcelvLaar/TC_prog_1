@@ -1,5 +1,6 @@
 module Calendar where
 
+import Data.Char
 import ParseLib.Abstract
 import Prelude hiding ((<$), ($>), (<*), (*>), sequence)
 import DateTime
@@ -23,11 +24,30 @@ data Event = Event{
     deriving (Eq, Ord, Show)
 
 -- Exercise 7
-data Token = Token
+data Token = Token {
+    id :: String,
+    rawData :: String
+}
     deriving (Eq, Ord, Show)
 
 scanCalendar :: Parser Char [Token]
-scanCalendar = undefined
+scanCalendar =  greedy scanLine
+
+isString :: Parser Char String
+isString = greedy isStrOrSp
+
+isStrOrSp :: Parser Char Char
+isStrOrSp = satisfy isAlphaNum <|> symbol ' '
+
+scanTest :: Parser Char Token
+scanTest = Token <$> token "1" <*> token "2" 
+
+scanLine :: Parser Char Token
+scanLine =  (\a b -> (Token a b)) <$> isString <* symbol ':' <*> isString <* symbol '\n' <<|>
+            (\a b -> (Token a b)) <$> isString <* symbol ':' <*> isString <* symbol '\n' <<|>
+            (\a b -> (Token a b)) <$> isString <* symbol ':' <*> isString
+
+testsl = parse scanCalendar "Testing:12315245\ntest2:testing\ndoesit:work\nihope:so\nhmm: I hope it works"
 
 parseCalendar :: Parser Token Calendar
 parseCalendar = undefined
