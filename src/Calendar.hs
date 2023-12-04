@@ -4,7 +4,7 @@ import Data.Char
 import ParseLib.Abstract
 import Prelude hiding ((<$), ($>), (<*), (*>), sequence)
 import DateTime
-
+import Data.Maybe
 
 -- Exercise 6
 data Calendar = Calendar{
@@ -33,43 +33,81 @@ data Token = Token {
 scanCalendar :: Parser Char [Token]
 scanCalendar =  greedy scanLine
 
+--greedy parse as long as something isn't an \n or : 
 isString :: Parser Char String
 isString = greedy isStrOrSp
 
 isStrOrSp :: Parser Char Char
 isStrOrSp = satisfy (\c -> c /= '\n' && c /= ':')
 
-newLineAllowed :: Parser Char String
-newLineAllowed = greedy (satisfy (/= ':'))
 
+--what this SHOULD be doing, is parse each multiline, combine the results of two multiline results and keep folding that until you can't anymore.
+--the other two lines are in case there's no multiline or a next line available
 scanLine :: Parser Char Token
-scanLine =  Token <$> isString <* symbol ':' <*> isString <* symbol '\n' <<|>
-            Token <$> isString <* symbol ':' <*> isString <<|>
-            Token <$> newLineAllowed <* symbol ':' <*> isString <* symbol '\n'
+scanLine =  Token <$> isString <* symbol ':' <*> ( (\a b -> a ++ b) <$> isString <*> (chainr (token "\n " *> isString) ((++) <$ succeed []))) <<|>
+            Token <$> isString <* symbol ':' <*> isString <* symbol '\n' <<|>
+            Token <$> isString <* symbol ':' <*> isString
 
-sl_test_1 = run scanCalendar "Testing:12315245\ntest2:testing\ndoesit:work\nihope:so\nhmm: I hope it works"
-sl_test_2 = run scanCalendar "BEGIN:VCALENDAR\n PRODID:-//hacksw/handcal//NONSGML v1.0//EN\n VERSION:2.0\n BEGIN:VEVENT\n SUMMARY:Bastille Day Party\n UID:19970610T172345Z-AF23B2@example.com\n DTSTAMP:19970610T172345Z\n DTSTART:19970714T170000Z\n DTEND:19970715T040000Z\n END:VEVENT\n END:VCALENDAR"
-sl_test_3 = run scanCalendar "BEGIN:VCALENDAR\n PRODID:-//hacksw/handcal//NONSGML v1.0//EN\n VERSION:2.0\n BEGIN:VEVENT\n SUMMARY:Bastille \nDay\n Party\n UID:19970610T172345Z-AF23B2@example.com\n DTSTAMP:19970610T172345Z\n DTSTART:19970714T170000Z\n DTEND:19970715T040000Z\n END:VEVENT\n END:VCALENDAR"
 
 parseCalendar :: Parser Token Calendar
 parseCalendar = undefined
-
-parenthesised :: Parser Char a -> Parser Char a
-parenthesised p = pack (symbol '(') p (symbol ')')
 
 recognizeCalendar :: String -> Maybe Calendar
 recognizeCalendar s = run scanCalendar s >>= run parseCalendar
 
 -- Exercise 8
 printCalendar :: Calendar -> String
-printCalendar = undefined
+printCalendar cal = "BEGIN:VCALENDAR\r\n" ++ prodIdStr (prodid cal) ++ versionStr (version cal) ++ eventsToStr (events cal) ++ "END:VCALENDAR"
 
-  --
-tests :: Parser Char (String,String)
-tests = (,) <$> many anySymbol <* symbol ',' <*> greedy1 anySymbol
+--prodid to string
+prodIdStr :: String -> String
+prodIdStr a = "PRODID:" ++ a ++ "\r\n"
 
-tests' :: Parser Char (String, String)
-tests' = (,) <$> greedy1 anySymbol <* symbol ',' <*> greedy1 anySymbol
+--version to string
+versionStr :: String -> String
+versionStr a = "VERSION:" ++ a ++ "\r\n"
 
-testints = parse tests "12,34"
-testintz = parse tests' "12,34"
+--since we might have multiple events, perform event to string function on each element
+eventsToStr :: [Event] -> String
+eventsToStr [] = ""
+eventsToStr (x:xs) = eventStr x ++ eventsToStr xs
+
+--even to string
+eventStr :: Event -> String
+eventStr e = "BEGIN:VEVENT" ++ dtstampStr (dtstamp e) ++ uidStr (uid e) ++ dtstartStr (dtstart e) ++ dtendStr (dtend e) ++ descStr (description e) ++ sumStr (summary e) ++ locStr (location e) ++ "END:VEVENT"
+ 
+ --dtstamp to string
+dtstampStr :: DateTime -> String
+dtstampStr dt = "DTSTAMP:" ++ printDateTime dt ++ "\r\n"
+
+--uid to string
+uidStr :: String -> String
+uidStr s = "UID:" ++ s ++ "\r\n"
+
+--dtstart to string
+dtstartStr :: DateTime -> String
+dtstartStr dt = "DTSTART:" ++ printDateTime dt ++ "\r\n"
+
+--dtend to string
+dtendStr :: DateTime -> String
+dtendStr dt = "DTEND:" ++ printDateTime dt ++ "\r\n"
+
+--description to string
+descStr :: Maybe String -> String
+descStr ma 
+        | ma == Nothing = ""
+        | otherwise = "DESCRIPTION:" ++ fromMaybe "" ma ++ "\r\n"
+
+--summary to string
+sumStr :: Maybe String -> String
+sumStr ma 
+        | ma == Nothing = ""
+        | otherwise = "SUMMARY:" ++ fromMaybe "" ma ++ "\r\n"
+
+--location to string
+locStr :: Maybe String -> String
+locStr ma 
+        | ma == Nothing = ""
+        | otherwise = "LOCATION:" ++ fromMaybe "" ma ++ "\r\n"
+
+

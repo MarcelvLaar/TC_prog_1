@@ -31,34 +31,25 @@ newtype Hour   = Hour   { runHour   :: Int } deriving (Eq, Ord, Show)
 newtype Minute = Minute { runMinute :: Int } deriving (Eq, Ord, Show)
 newtype Second = Second { runSecond :: Int } deriving (Eq, Ord, Show)
 
---wat testen met parsers
-
-greedyNatural :: Parser Char Int
-greedyNatural = foldl (\ a b -> a * 10 + b) 0 <$> greedy1 newdigit
-
-coolInteger :: Parser Char Int
-coolInteger = (negate <$ symbol '-') `option` id  <*>  greedyNatural
-
-ints :: Parser Char (Int, Int)
-ints = (,) <$> integer <* symbol ',' <*> integer
--- ints = (\a b -> (a, b)) <$> coolInteger <* symbol ',' <*> coolInteger
 
 -- Exercise 1
 
+--
 parseDateTime :: Parser Char DateTime
 parseDateTime = DateTime <$> parseDate <* anySymbol <*> parseTime <*> parseUTC
 
+--parsing utc. parses True if there is a Z at the end of a date string
 parseUTC :: Parser Char Bool
 parseUTC = (True <$ symbol 'Z') <<|> (False <$ epsilon)
--- parseUTC = const True <$> (symbol 'Z') <<|> (const False <$> epsilon)
-
 
 parseTime :: Parser Char Time
 parseTime = Time <$> parseHour <*> parseMinute <*> parseSecond
 
+--parses 2 digits
 parseHour :: Parser Char Hour
 parseHour = Hour <$> parseDigits 2
 
+--parses 2 digits
 parseMinute :: Parser Char Minute
 parseMinute = Minute <$> parseDigits 2
 
@@ -77,6 +68,7 @@ parseMonth = Month <$> parseDigits 2
 parseYear :: Parser Char Year
 parseYear = Year <$> parseDigits 4
 
+--parse digit n times and combine the values by multiplying the previous result times 10
 parseDigits :: Int -> Parser Char Int
 parseDigits n = foldl (\ a b -> a * 10 + b) 0 <$> replicateM n newdigit
 
@@ -85,12 +77,15 @@ parseDigits n = foldl (\ a b -> a * 10 + b) 0 <$> replicateM n newdigit
 run :: Parser b a -> [b] -> Maybe a
 run parser l = checking (parse parser l)
 
+--we check whether the parsed string returned a result with no remainder. 
+--if it did, return the result. if not, Nothing
 checking :: [(a, [b])] -> Maybe a
 checking [(a, [])] = Just a
 checking [(a, _)] = Nothing
 checking [] = Nothing
 
 -- Exercise 3
+--print date, time and utc that's stored in the DateTime. also adding the separator "T"
 printDateTime :: DateTime -> String
 printDateTime (DateTime d t u ) = printDate d ++ "T" ++ printTime t ++ printUTC u
 
@@ -111,9 +106,9 @@ intShow l i = concat (replicate (l - length (show i)) "0") ++ show i
 -- Exercise 4
 parsePrint :: [Char] -> Maybe String
 parsePrint s = printDateTime <$> run parseDateTime s
--- parsePrint s = fmap printDateTime $ run parseDateTime s
 
 -- Exercise 5
+--checks for month, day, hour, minute and second if they're valid numbers
 checkDateTime :: DateTime -> Bool
 checkDateTime (DateTime (Date (Year year) (Month month) (Day day)) (Time (Hour hour) (Minute minute) (Second second)) _) = month <= 12 &&
                     checkDay year month day &&
@@ -122,6 +117,8 @@ checkDateTime (DateTime (Date (Year year) (Month month) (Day day)) (Time (Hour h
                     second < 60
 
 -- Year -> Month -> Day -> Bool
+--we check for each given month if the day accompanying it is valid or not. for february, we also care about leapyear
+--this also immediately checks whether month is valid or not
 checkDay :: Int -> Int -> Int -> Bool
 checkDay y m d = case m of
                     1 -> d <= 31
@@ -138,25 +135,10 @@ checkDay y m d = case m of
                     12 -> d <= 31
                     otherwise -> False
 
+--function to calculate whether a year is a leap year or not and if so, allow 29 days for february. if not, 28
 checkLeapYear :: Int -> Int -> Bool
 checkLeapYear y d
                 | y `mod` 4 == 0 && (((y + 100) `mod` 200) /= 0) && (((y + 200) `mod` 400) /= 0) = d <= 29
                 |otherwise = d <= 28
 
--- Own testing functions
 
-fromMaybe :: Maybe a -> a
-fromMaybe Nothing = error "something went wrong"
-fromMaybe (Just x) = x --this is just a prelude function, no clue why it's not available
-
-toMaybe :: a -> Maybe a
-toMaybe a = Just a
-
-ex3test :: String
-ex3test = printDateTime $ fromMaybe $ run parseDateTime "19970610T172345Z"
-
--- ex3test2 :: Maybe String
--- ex3test2 = run parseDateTime "19970715T040000Z"
-
-ex4test :: Maybe String
-ex4test = parsePrint "19970715T040000Z"
